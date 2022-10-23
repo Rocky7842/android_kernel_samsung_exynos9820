@@ -51,7 +51,6 @@ dtbo-y += samsung/exynos9820-d1x_kor_21.dtbo
 dtbo-y += samsung/exynos9820-d1x_kor_22.dtbo
 dtbo-y += samsung/exynos9820-d1x_kor_18.dtbo
 dtbo-y += samsung/exynos9820-d1x_kor_19.dtbo
-dtbo-y += samsung/exynos9820-d1x_kor_20.dtbo
 
 dtbo-y += samsung/exynos9820-d2_eur_open_19.dtbo
 dtbo-y += samsung/exynos9820-d2_eur_open_18.dtbo
