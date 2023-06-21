@@ -210,8 +210,14 @@ obj-$(CONFIG_VISION_SUPPORT)	+= vision/
 #Fingerprint
 obj-$(CONFIG_SENSORS_FINGERPRINT)       += fingerprint/
 
+# vibrator
+obj-y				+= vibrator/
+
 # Sensorhub driver
 obj-$(CONFIG_SENSORS_SSP)	+= sensorhub/
+
+# grip sensor
+obj-y				+= sensors/
 
 # optics sensor driver
 obj-$(CONFIG_SENSORS_HRMSENSOR)	+= optics/

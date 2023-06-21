@@ -84,7 +84,9 @@ static char *panel_work_names[] = {
 static void disp_det_handler(struct work_struct *data);
 static void conn_det_handler(struct work_struct *data);
 static void err_fg_handler(struct work_struct *data);
+#ifdef CONFIG_SUPPORT_DIM_FLASH
 static void dim_flash_handler(struct work_struct *work);
+#endif
 static void panel_condition_handler(struct work_struct *work);
 
 static panel_wq_handler panel_wq_handlers[] = {
@@ -520,6 +522,14 @@ static int __panel_seq_init(struct panel_device *panel)
 		panel_err("PANEL:ERR:%s, failed to write init seqtbl\n", __func__);
 		goto err_init_seq;
 	}
+#if 0
+#ifdef CONFIG_DYNAMIC_FREQ
+	if (panel->df_status.current_ddi_osc == 1) {
+		if (panel_do_seqtbl_by_index_nolock(panel, PANEL_COMP_LPTS_SEQ) < 0)
+			panel_err("failed to write init seqtbl\n");
+	}
+#endif
+#endif
 	mutex_unlock(&panel->op_lock);
 	mutex_unlock(&panel_bl->lock);
 
@@ -1204,9 +1214,9 @@ void clear_check_wq_var(struct panel_condition_check *pcc)
 
 bool show_copr_value(struct panel_device *panel, int frame_cnt)
 {
-	int ret = 0;
 	bool retVal = false;
 #ifdef CONFIG_EXYNOS_DECON_LCD_COPR
+	int ret = 0;
 	struct copr_info *copr = &panel->copr;
 	char write_buf[200] = {0, };
 	int c = 0, i = 0, len = 0;

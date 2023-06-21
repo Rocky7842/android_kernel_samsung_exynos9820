@@ -14,6 +14,10 @@
  */
 #include "../ssp.h"
 
+#if defined(CONFIG_SENSORS_SSP_STK33917)
+#define VENDOR		"SITRON"
+#define CHIP_ID		"STK33917"
+#else
 #define	VENDOR		"AMS"
 #if defined(CONFIG_SENSORS_SSP_TMG399x)
 #define	CHIP_ID		"TMG399X"
@@ -34,7 +38,7 @@
 #else
 #define CHIP_ID		"UNKNOWN"
 #endif
-
+#endif
 #define CONFIG_PANEL_NOTIFY	1
 /*************************************************************************/
 /* factory Sysfs                                                         */
@@ -395,7 +399,12 @@ static ssize_t light_circle_show(struct device *dev,
 			set_decimal_point(&diameter, 2, 4);
 			break;
 	}
-#endif	
+#elif defined(CONFIG_SENSORS_SSP_F62)
+                        set_decimal_point(&x, 46, 38);
+                        set_decimal_point(&y, 5, 73);
+                        set_decimal_point(&diameter, 2, 8);
+                        pr_info("[SSP] %s  aptype : %d", __func__,data->ap_type);
+#endif
 
 	return snprintf(buf, PAGE_SIZE, "%d.%d %d.%d %d.%d\n", x.integer, x.point,
 			y.integer, y.point, diameter.integer, diameter.point);

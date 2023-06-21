@@ -1217,6 +1217,11 @@ err:
 	return ret;
 }
 
+#ifdef CONFIG_SENSORS_SSP_F62
+bool decon0_pwr_on_for_proximity = false;
+int decon0_last_blank;
+extern bool ssp_proximity_enabled(void);
+#endif
 static int decon_blank(int blank_mode, struct fb_info *info)
 {
 	struct decon_win *win = info->par;
@@ -1235,15 +1240,34 @@ static int decon_blank(int blank_mode, struct fb_info *info)
 
 	decon_hiber_block_exit(decon);
 
+#ifdef CONFIG_SENSORS_SSP_F62
+	if (decon->id == 0) {
+		decon0_last_blank = blank_mode;
+		decon0_pwr_on_for_proximity = false;
+	}
+#endif
+
 	switch (blank_mode) {
 	case FB_BLANK_POWERDOWN:
 	case FB_BLANK_NORMAL:
-		DPU_EVENT_LOG(DPU_EVT_BLANK, &decon->sd, ktime_set(0, 0));
-		ret = decon_update_pwr_state(decon, DISP_PWR_OFF);
-		if (ret) {
-			decon_err("failed to disable decon\n");
-			goto blank_exit;
+#ifdef CONFIG_SENSORS_SSP_F62
+		if (decon->id == 0) {
+			if (!ssp_proximity_enabled()) {
+#endif
+				DPU_EVENT_LOG(DPU_EVT_BLANK, &decon->sd, ktime_set(0, 0));
+				ret = decon_update_pwr_state(decon, DISP_PWR_OFF);
+				if (ret) {
+					decon_err("failed to disable decon\n");
+					goto blank_exit;
+				}
+#ifdef CONFIG_SENSORS_SSP_F62
+				decon0_pwr_on_for_proximity = false;
+			} else {
+				decon_info("Skip decon disable due to screen-off proximity");
+				decon0_pwr_on_for_proximity = true;
+			}
 		}
+#endif
 		break;
 	case FB_BLANK_UNBLANK:
 		DPU_EVENT_LOG(DPU_EVT_UNBLANK, &decon->sd, ktime_set(0, 0));
@@ -1264,6 +1288,35 @@ blank_exit:
 	decon_info("%s -\n", __func__);
 	return ret;
 }
+#ifdef CONFIG_SENSORS_SSP_F62
+void dpu_set_decon0_off_state_proximity(bool on) {
+	int ret;
+	struct decon_device *decon0 = get_decon_drvdata(0);
+	bool blank_powerdown;
+
+	decon_hiber_block_exit(decon0);
+
+	blank_powerdown = decon0_last_blank == FB_BLANK_POWERDOWN
+				|| decon0_last_blank == FB_BLANK_NORMAL;
+
+	if (on && blank_powerdown) {
+		decon_info("Enabling decon for screen-off proximity");
+		ret = decon_update_pwr_state(decon0, DISP_PWR_NORMAL);
+		if (!ret)
+			decon0_pwr_on_for_proximity = true;
+	} else if (!on && blank_powerdown && decon0_pwr_on_for_proximity) {
+		decon_info("Disabling decon for screen-off proximity");
+		ret = decon_update_pwr_state(decon0, DISP_PWR_OFF);
+		if (!ret)
+			decon0_pwr_on_for_proximity = true;
+	}
+
+	if (ret)
+		decon_err("Failed to set decon pwr mode");
+
+	decon_hiber_unblock(decon0);
+}
+#endif
 
 /* ---------- FB_IOCTL INTERFACE ----------- */
 static void decon_activate_vsync(struct decon_device *decon)
@@ -3194,31 +3247,6 @@ static int decon_set_color_mode(struct decon_device *decon,
 	return ret;
 }
 
-/* Android O version does not support non translation */
-#if !defined(CONFIG_ANDROID_SYSTEM_AS_ROOT)
-static void decon_translate_idma2ch(struct decon_device *decon,
-		struct decon_win_config_data *win_data)
-{
-	int i;
-	struct decon_win_config *config;
-	struct decon_win_config *win_config = win_data->config;
-
-	for (i = 0; i < decon->dt.max_win; i++) {
-		config = &win_config[i];
-
-		switch (config->state) {
-		case DECON_WIN_STATE_COLOR:
-		case DECON_WIN_STATE_BUFFER:
-		case DECON_WIN_STATE_CURSOR:
-			config->idma_type = DPU_DMA2CH(config->idma_type);
-			break;
-		default:
-			break;
-		}
-	}
-}
-#endif
-
 static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
 {
@@ -3284,17 +3312,6 @@ static int decon_ioctl(struct fb_info *info, unsigned int cmd,
 			break;
 		}
 
-/* Android O version does not support non translation */
-#if !defined(CONFIG_ANDROID_SYSTEM_AS_ROOT)
-		/*
-		 * idma_type is translated to DPP channel number temporarily.
-		 * In the future, user side will use DPP channel number instead
-		 * of idma_type.
-		 * If use side uses DPP channel number for S3CFB_WIN_CONFIG parameter,
-		 * this function will be removed.
-		 */
-		decon_translate_idma2ch(decon, &win_data);
-#endif
 		ret = decon_set_win_config(decon, &win_data);
 		if (ret)
 			break;
